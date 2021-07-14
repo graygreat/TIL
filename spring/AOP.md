@@ -239,7 +239,7 @@ public class RealEventService implements EventService {
 
 ### 2.3 프록시 방법
 
-위 코드에 프록시 패턴을 적용시켜보자.
+위 코드에 프록시 패턴을 적용해보자.
 
 ```java=
 @Primary
@@ -274,6 +274,103 @@ public class ProxyRealEventService implements EventService{
 
 하지만 이 코드에서도 중복된 코드가 나타난다. 어떻게 이 문제를 해결할 수 있을까?
 
+## 3. @AOP
+
+스프링 AOP를 사용하면 위의 문제를 해결할 수 있다.
+
+### 3-1. AOP 의존성 추가
+
+#### gradle
+
+```groovy=
+implementation 'org.springframework.boot:spring-boot-starter-aop'
+```
+
+#### maven
+
+```xml=
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-test</artifactId>
+    <scope>test</scope>
+</dependency>
+```
+
+### 3-2. Aspect 사용
+
+@Aspect 어노테이션을 사용하면 해당 클래스가 Aspect임을 명시해준다.
+
+```java=
+@Component
+@Aspect
+public class PerfAspect {
+    ...
+}
+```
+
+Aspect에 Adivce와 PointCut이 정의하자.
+
+#### 1) Adivce 정의
+
+```java=
+public Object logPerf(ProceedingJoinPoint pjp) throws Throwable {
+    long begin = System.currentTimeMillis();
+    Object retVal = proceedingJoinPoint.proceed();
+    System.out.println(System.currentTimeMillis() - begin);
+    return retVal;
+}
+```
+
+ProceedingJoinPoint는 이 advice가 적용이 되는 대상이다. (createEvent, publishEvent 메소드 자체)
+
+Advice는 3가지 방법으로 적용시킬 수 있다.
+
+* 1. Before
+    * Advice는 메소드가 실행되기 전에 동작한다.
+* 2. After
+    * Advice는 메소드가 실행된 후에 동작한다.
+* 3. Around
+    * Before + After이라고 생각하면 된다. 즉, 메소드 실행 전, 후에 동작한다.
+
+#### 2) PointCut 정의
+
+PointCut은 3가지 방법으로 적용시킬 수 있다.
+
+* 1. execution
+    * 포인트 컷 표현식을 사용하여 어디에 적용할 것인지 정의할 수 있다.
+* 2. @annotaion
+
+아래와 같이 annotation을 정의한다.
+```java=
+@Retention(RetentionPolicy.CLASS)
+@Target(ElementType.METHOD)
+public @interface PerfLogging {
+}
+```
+
+이후 @annotation 표현식을 통해 정의해줄 수 있다.
+그렇게 되면 PerfLogging Annotation을 사용한 메소드들에게 advice를 적용해준다.
+
+```java=
+@Around("@annotation(PerfLogging)")
+public Object logPerf(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
+    long begin = System.currentTimeMillis();
+    Object retVal = proceedingJoinPoint.proceed();
+    System.out.println(System.currentTimeMillis() - begin);
+    return retVal;
+```
+* 3. bean
+
+@bean 표현식을 통해 정의해줄 수 있다.
+
+```java=
+@Around("@annotation(PerfLogging)")
+public Object logPerf(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
+    long begin = System.currentTimeMillis();
+    Object retVal = proceedingJoinPoint.proceed();
+    System.out.println(System.currentTimeMillis() - begin);
+    return retVal;
+```
 #### 참고
 
 https://engkimbs.tistory.com/746
